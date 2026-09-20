@@ -4,7 +4,7 @@
 
 This repository is the full Pulse mobile web frontend, corresponding to the iOS client. Home, Create, Remix, assets, generation, preview, publishing, Profile, authentication, community and settings belong here. The public Web Player is one module, never a substitute for the full product.
 
-Read `docs/product.md`, `docs/architecture.md` and `docs/roadmap.md` before implementation. Keep implemented and planned capabilities explicit. The initialization contains documentation only; do not claim a runnable application exists.
+Read `docs/product.md`, `docs/architecture.md` and `docs/roadmap.md` before implementation. Keep implemented and planned capabilities explicit. The application is runnable. Read docs/acceptance.md for verified journeys and outstanding production integration; do not equate deterministic-local checks with live model or production acceptance.
 
 ## Contracts and architecture
 
