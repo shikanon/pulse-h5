@@ -1,4 +1,5 @@
 export type Work = {
+  cover?: { assetId: string; kind: "image" | "video"; url: string };
   id: string;
   title: string;
   creator: string;
@@ -48,6 +49,7 @@ export type Job = {
   assetIds: string[];
 };
 export type Asset = {
+  storage?: string;
   id: string;
   displayName: string;
   fileName: string;

@@ -29,6 +29,7 @@ import { Conversation } from "./Conversation";
 import { GenerationDetails } from "./GenerationDetails";
 import { Cover } from "./Feed";
 import { Player } from "./Player";
+import { CoverEditor } from "./CoverEditor";
 import { Community } from "./Community";
 export default function WorkPage({
   shared = false,
@@ -133,7 +134,7 @@ export default function WorkPage({
         </>
       ) : (
         <div className="detail-cover">
-          <Cover work={work} />
+          <Cover work={work} animate />
           <Button
             className="primary"
             onClick={() => {
@@ -180,6 +181,9 @@ export default function WorkPage({
       ) : null}
       {owner ? (
         <section className="owner-actions">
+          <Button className="wide" onClick={() => setPanel("cover")}>
+            {work.cover ? "更换或移除封面" : "设置封面"}
+          </Button>
           <Link
             className="button wide"
             to={"/works/" + part(work.id) + "/edit"}
@@ -266,6 +270,13 @@ export default function WorkPage({
             />
           </label>
         </section>
+      ) : null}
+      {panel === "cover" ? (
+        <CoverEditor
+          work={work}
+          onSave={(w) => r.setData({ work: w })}
+          onClose={() => setPanel("")}
+        />
       ) : null}
       {panel === "conversation" ? (
         <Conversation workId={work.id} onClose={() => setPanel("")} />

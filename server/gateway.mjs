@@ -47,7 +47,7 @@ export const isPublic = (method, path) =>
       path,
     ) ||
       /^\/v1\/(public\/|artifacts\/)/.test(path) ||
-      /^\/v1\/works\/[^/]+(\/comments)?$/.test(path))) ||
+      /^\/v1\/works\/[^/]+(\/(comments|cover))?$/.test(path))) ||
   (/^(POST|DELETE)$/.test(method) &&
     /^\/v1\/(play-sessions(?:\/[^/]+\/(events|challenge))?|growth\/(visits|identity)|client-events)$/.test(
       path,

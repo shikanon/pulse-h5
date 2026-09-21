@@ -1746,3 +1746,27 @@ main:has(.native-feed) {
   outline: 2px solid var(--lime);
   outline-offset: -3px;
 }
+
+.work-cover-media {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  background: #111;
+}
+.feed-runtime > .work-cover-media {
+  position: absolute;
+  inset: 0;
+  object-fit: contain;
+}
+.feed-preview-content[hidden] {
+  display: none;
+}
+.cover-editor-preview {
+  height: 200px;
+  border-radius: 12px;
+  overflow: hidden;
+}
+.cover-editor-preview .work-cover-media {
+  object-fit: contain;
+}

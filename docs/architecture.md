@@ -56,3 +56,9 @@ scripts       隔离本地 API + H5 启动器
 Node 托管 `dist` 并为深链返回 index.html。HTTPS 宿主、API 的 PUBLIC_WEB_ORIGIN、Apple 返回地址和上传 Bucket CORS 需要一致。独立社交爬虫 OG 适配器尚未迁入，当前公开链接是可游玩的 SPA，不能宣称已有动态社交卡片。
 
 真实 Apple 认证/重新认证/删除账号、OSS 上传完成、真实模型生成、手机 Safari/Android/微信专项验收尚未完成。前端代码存在不等于这些外部服务已配置或验证。
+
+## 作品封面
+
+`PATCH works/:id/cover` 接受 `assetId`，空字符串移除。只允许作者选择已完成校验的图片或视频素材。`work.cover` 包含 `assetId/kind/url`；媒体通过 `GET works/:id/cover` 在作品可见性边界内读取，支持 Range 和 no-store，不暴露存储签名或其他私有素材。H5 为媒体 URL 附加 asset ID，确保更换同类型封面后重新加载。
+
+首页有封面时延迟挂载 Player；首次进入后保持同一 iframe，退出时隐藏并发送暂停信号。封面出错自动恢复实时预览。视频封面尊重减少动态效果偏好并在页面后台暂停。

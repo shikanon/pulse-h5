@@ -4,19 +4,35 @@ import { Gamepad2, ArrowDown, ArrowUp, X, RefreshCw } from "lucide-react";
 import { api, artifactPath, part, type Work, type List } from "../shared/api";
 import { Button, Loading, Empty, ErrorState } from "../shared/ui";
 import { useApp } from "../app/store";
-import { Player } from "./Player";
+import { FeedPreview, WorkCoverMedia } from "./WorkCover";
+import { coverSource } from "../shared/workCover";
 import { Community } from "./Community";
 import {
   finishGesture,
   moveGesture,
   type FeedGesture,
 } from "../shared/feedGesture";
-export function Cover({ work }: { work: Work }) {
+export function Cover({
+  work,
+  animate = false,
+}: {
+  work: Work;
+  animate?: boolean;
+}) {
   const [failed, setFailed] = useState(false);
+  const custom = coverSource(work);
   const poster = work.artifactPreviewUrl
     ? artifactPath(work.artifactPreviewUrl, work.artifactId, "preview.png")
     : undefined;
-  useEffect(() => setFailed(false), [poster]);
+  useEffect(() => setFailed(false), [poster, work.cover?.assetId]);
+  if (custom && !failed)
+    return (
+      <WorkCoverMedia
+        work={work}
+        animate={animate}
+        onError={() => setFailed(true)}
+      />
+    );
   return poster && !failed ? (
     <img
       className="cover"
@@ -236,13 +252,11 @@ export default function Feed() {
           }}
         >
           <div className="feed-runtime">
-            <div className="feed-preview-content" inert={!immersive}>
-              <Player
-                key={work.id}
-                work={work}
-                showsResultControls={!immersive}
-              />
-            </div>
+            <FeedPreview
+              key={work.id + (work.cover?.assetId || "")}
+              work={work}
+              playing={immersive}
+            />
             {!immersive && (
               <button
                 type="button"

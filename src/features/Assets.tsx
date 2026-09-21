@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Upload, Image, Music, Film, Check, X } from "lucide-react";
 import { api, part, type Asset, type List } from "../shared/api";
 import { Sheet, Button, Notice, Loading, useResource } from "../shared/ui";
+import { coverMediaTypes } from "../shared/workCover";
 import { useApp } from "../app/store";
 export function Assets({
   selected,
@@ -9,12 +10,18 @@ export function Assets({
   onClose,
   uploads,
   initialKind = "library",
+  coverMode = false,
+  onConfirm,
+  saving = false,
 }: {
   selected: Asset[];
   onChange: (a: Asset[]) => void;
   onClose: () => void;
   uploads: boolean;
   initialKind?: "library" | "media" | "audio";
+  coverMode?: boolean;
+  onConfirm?: () => void;
+  saving?: boolean;
 }) {
   const r = useResource(() => api<List<Asset>>("assets/library"), []),
     [tab, setTab] = useState(initialKind === "library" ? "public" : "private"),
@@ -41,6 +48,17 @@ export function Assets({
       onChange(selected.filter((v) => v.id !== a.id));
       return;
     }
+    if (coverMode) {
+      if (
+        !coverMediaTypes.includes(a.mediaType) ||
+        a.sizeBytes > 4 * 1024 * 1024
+      ) {
+        setError("请选择不超过 4 MiB 的 JPG、PNG、WebP、GIF、MP4 或 WebM。");
+        return;
+      }
+      onChange([a]);
+      return;
+    }
     if (
       selected.length >= 8 ||
       selected.reduce((s, v) => s + v.sizeBytes, 0) + a.sizeBytes >
@@ -54,10 +72,15 @@ export function Assets({
   async function upload(file: File) {
     cancelled.current = false;
     setError("");
+    if (coverMode && !coverMediaTypes.includes(file.type)) {
+      setError("封面支持 JPG、PNG、WebP、GIF、MP4 和 WebM。");
+      return;
+    }
     if (
-      file.size + selected.reduce((s, a) => s + a.sizeBytes, 0) >
+      file.size +
+        (coverMode ? 0 : selected.reduce((s, a) => s + a.sizeBytes, 0)) >
         4 * 1024 * 1024 ||
-      selected.length >= 8
+      (!coverMode && selected.length >= 8)
     ) {
       setError("素材超出本轮 4 MiB 或 8 项限制。请先压缩或移除素材。");
       return;
@@ -147,14 +170,16 @@ export function Assets({
   }
   return (
     <Sheet
-      title="素材库"
+      title={coverMode ? "设置作品封面" : "素材库"}
       onClose={() => {
-        if (progress === undefined) onClose();
+        if (progress === undefined && !saving) onClose();
         else setError("请先完成或取消上传");
       }}
     >
       <p className="muted">
-        图片、视频与音乐，让灵感更具体。已选 {selected.length} / 8
+        {coverMode
+          ? "选择一张图片或一段视频作为封面（最多 4 MiB）。保存后，公开作品的封面也将对所有人可见。"
+          : `图片、视频与音乐，让灵感更具体。已选 ${selected.length} / 8`}
       </p>
       <div className="segments">
         {[
@@ -178,12 +203,21 @@ export function Assets({
       ) : (
         <div className="asset-list">
           {r.data?.data
-            .filter((a) => a.library === tab && a.status === "ready")
+            .filter(
+              (a) =>
+                a.library === tab &&
+                a.status === "ready" &&
+                (!coverMode ||
+                  (coverMediaTypes.includes(a.mediaType) &&
+                    ["oss", "tos"].includes(a.storage || "") &&
+                    a.sizeBytes > 0 &&
+                    a.sizeBytes <= 4 * 1024 * 1024)),
+            )
             .map((a) => (
               <button
                 key={a.id}
                 className="asset-row"
-                disabled={progress !== undefined}
+                disabled={progress !== undefined || saving}
                 aria-pressed={selected.some((v) => v.id === a.id)}
                 onClick={() => add(a)}
               >
@@ -207,7 +241,14 @@ export function Assets({
               </button>
             ))}
           {!r.data?.data.some(
-            (a) => a.library === tab && a.status === "ready",
+            (a) =>
+              a.library === tab &&
+              a.status === "ready" &&
+              (!coverMode ||
+                (coverMediaTypes.includes(a.mediaType) &&
+                  ["oss", "tos"].includes(a.storage || "") &&
+                  a.sizeBytes > 0 &&
+                  a.sizeBytes <= 4 * 1024 * 1024)),
           ) ? (
             <p className="muted">这里还没有素材。</p>
           ) : null}
@@ -220,11 +261,13 @@ export function Assets({
             type="file"
             hidden
             accept={
-              initialKind === "audio"
-                ? "audio/*"
-                : initialKind === "media"
-                  ? "image/*,video/*"
-                  : "image/*,audio/*,video/*"
+              coverMode
+                ? coverMediaTypes.join(",")
+                : initialKind === "audio"
+                  ? "audio/*"
+                  : initialKind === "media"
+                    ? "image/*,video/*"
+                    : "image/*,audio/*,video/*"
             }
             onChange={(e) => {
               if (e.target.files?.[0]) void upload(e.target.files[0]);
@@ -254,13 +297,16 @@ export function Assets({
       )}
       <Button
         className="primary wide"
-        disabled={progress !== undefined}
-        onClick={onClose}
+        disabled={progress !== undefined || saving}
+        onClick={onConfirm || onClose}
+        busy={saving}
       >
-        完成选择
+        {coverMode ? (selected.length ? "保存封面" : "不使用封面") : "完成选择"}
       </Button>
       <small className="muted">
-        素材会随发布作品和允许的 Remix 进入交付内容。
+        {coverMode
+          ? "不设置封面时，首页直接展示游戏预览。视频封面静音循环播放。"
+          : "素材会随发布作品和允许的 Remix 进入交付内容。"}
       </small>
     </Sheet>
   );

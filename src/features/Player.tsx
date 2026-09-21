@@ -8,11 +8,13 @@ export function Player({
   artifactId = work.artifactId,
   onInteraction,
   showsResultControls = true,
+  active = true,
 }: {
   work: Work;
   artifactId?: string;
   onInteraction?: () => void;
   showsResultControls?: boolean;
+  active?: boolean;
 }) {
   const frame = useRef<HTMLIFrameElement>(null),
     [entry, setEntry] = useState<string>(),
@@ -112,7 +114,7 @@ export function Player({
   }, [entry, loaded]);
   useEffect(() => {
     const isActive = () =>
-      !document.hidden && !document.querySelector("dialog[open]");
+      active && !document.hidden && !document.querySelector("dialog[open]");
     const visible = () =>
       frame.current?.contentWindow?.postMessage(
         { type: "pulse:visibility", active: isActive() },
@@ -157,6 +159,7 @@ export function Player({
           if (token === epoch.current) toast("成绩暂未保存，可以重新游玩。");
         });
     };
+    visible();
     const observer = new MutationObserver(visible);
     observer.observe(document.body, {
       subtree: true,
@@ -171,7 +174,7 @@ export function Player({
       document.removeEventListener("visibilitychange", visible);
       window.removeEventListener("message", message);
     };
-  }, [onInteraction, toast]);
+  }, [onInteraction, toast, active, entry]);
   async function share(download = false) {
     try {
       if (!session.current) return;
@@ -246,7 +249,9 @@ export function Player({
               {
                 type: "pulse:visibility",
                 active:
-                  !document.hidden && !document.querySelector("dialog[open]"),
+                  active &&
+                  !document.hidden &&
+                  !document.querySelector("dialog[open]"),
               },
               "*",
             );
