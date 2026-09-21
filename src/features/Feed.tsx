@@ -1,17 +1,16 @@
 import { useEffect, useState, useRef } from "react";
 import { Link } from "react-router-dom";
-import {
-  Gamepad2,
-  ArrowDown,
-  ArrowUp,
-  X,
-  RefreshCw,
-} from "lucide-react";
+import { Gamepad2, ArrowDown, ArrowUp, X, RefreshCw } from "lucide-react";
 import { api, artifactPath, part, type Work, type List } from "../shared/api";
 import { Button, Loading, Empty, ErrorState } from "../shared/ui";
 import { useApp } from "../app/store";
 import { Player } from "./Player";
 import { Community } from "./Community";
+import {
+  finishGesture,
+  moveGesture,
+  type FeedGesture,
+} from "../shared/feedGesture";
 export function Cover({ work }: { work: Work }) {
   const [failed, setFailed] = useState(false);
   const poster = work.artifactPreviewUrl
@@ -54,8 +53,10 @@ export default function Feed() {
     sessionStorage.setItem("pulse.h5.feed-mode", mode);
     sessionStorage.setItem("pulse.h5.feed-index", String(index));
   }, [mode, index]);
-  const { toast } = useApp(),
-    touch = useRef(0);
+  const { toast } = useApp();
+  const gesture = useRef<FeedGesture | null>(null);
+  const allowTap = useRef(false);
+  const startsOnPreview = useRef(false);
   useEffect(() => {
     const c = new AbortController();
     setLoading(true);
@@ -132,21 +133,7 @@ export default function Feed() {
   }, []);
   const work = works[index];
   return (
-    <div
-      className={"native-feed " + (immersive ? "is-immersive" : "")}
-      onTouchStart={(e) => {
-        touch.current = e.touches[0].clientY;
-      }}
-      onTouchEnd={(e) => {
-        if (immersive || (e.target as HTMLElement).closest("button,a,dialog"))
-          return;
-        const d = touch.current - e.changedTouches[0].clientY;
-        if (Math.abs(d) > 80) {
-          if (d > 0) void next();
-          else setIndex((i) => Math.max(0, i - 1));
-        }
-      }}
-    >
+    <div className={"native-feed " + (immersive ? "is-immersive" : "")}>
       <div className="feed-top" hidden={immersive}>
         <div className="feed-modes" aria-label="作品排序">
           <button
@@ -194,14 +181,85 @@ export default function Feed() {
           试试创作，或重新加载。
         </Empty>
       ) : (
-        <article className="native-feed-card">
+        <article
+          className="native-feed-card"
+          onPointerDown={(e) => {
+            allowTap.current = false;
+            if (gesture.current) {
+              gesture.current.cancelled = true;
+              return;
+            }
+            if (immersive || !e.isPrimary || e.button !== 0) return;
+            const target = e.target as HTMLElement;
+            if (
+              target.closest("button,a,input,select,textarea,dialog") &&
+              !target.closest("[data-feed-preview]")
+            )
+              return;
+            startsOnPreview.current = !!target.closest("[data-feed-preview]");
+            gesture.current = {
+              id: e.pointerId,
+              x: e.clientX,
+              y: e.clientY,
+              started: e.timeStamp,
+              distance: 0,
+              cancelled: false,
+            };
+            e.currentTarget.setPointerCapture(e.pointerId);
+          }}
+          onPointerMove={(e) => {
+            const g = gesture.current;
+            if (g?.id === e.pointerId) moveGesture(g, e.clientX, e.clientY);
+          }}
+          onPointerUp={(e) => {
+            const g = gesture.current;
+            if (!g || g.id !== e.pointerId) return;
+            const action = finishGesture(g, e.clientX, e.clientY, e.timeStamp);
+            gesture.current = null;
+            allowTap.current = action === "tap" && startsOnPreview.current;
+            if (action === "next") void next();
+            if (action === "previous") setIndex((i) => Math.max(0, i - 1));
+          }}
+          onPointerCancel={() => {
+            gesture.current = null;
+            allowTap.current = false;
+          }}
+          onLostPointerCapture={() => {
+            gesture.current = null;
+          }}
+          onClick={(e) => {
+            // Pointer capture retargets clicks to this article. Activate only a completed tap.
+            if (!immersive && allowTap.current) {
+              allowTap.current = false;
+              setImmersive(true);
+            }
+          }}
+        >
           <div className="feed-runtime">
-            <Player
-              key={work.id}
-              work={work}
-              showsResultControls={!immersive}
-              onInteraction={() => setImmersive(true)}
-            />
+            <div className="feed-preview-content" inert={!immersive}>
+              <Player
+                key={work.id}
+                work={work}
+                showsResultControls={!immersive}
+              />
+            </div>
+            {!immersive && (
+              <button
+                type="button"
+                className="feed-play-gate"
+                data-feed-preview
+                aria-label={`开始游玩：${work.title}`}
+                onContextMenu={(e) => e.preventDefault()}
+                onClick={(e) => {
+                  if (e.detail === 0) {
+                    e.stopPropagation();
+                    setImmersive(true);
+                  }
+                }}
+              >
+                <span>点击游玩 · 上下滑切换</span>
+              </button>
+            )}
           </div>
           <div className="native-summary" hidden={immersive}>
             <div className="summary-heading">
