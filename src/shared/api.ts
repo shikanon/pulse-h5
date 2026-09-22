@@ -79,6 +79,7 @@ export type Configuration = {
   supportURL?: string;
 };
 export type Session = {
+  emailEnabled?: boolean;
   user: User | null;
   localLogin: boolean;
   appleClientId: string;
@@ -116,17 +117,18 @@ export async function api<T>(
   );
   if (!response.ok) {
     const data = await response.json().catch(() => ({}));
-    if (response.status === 401)
+    if (response.status === 401 && !path.startsWith("/session/email/"))
       window.dispatchEvent(new Event("pulse:auth-expired"));
     throw new APIError(
       response.status,
-      {
-        401: "请先登录后继续",
-        403: "你没有权限执行此操作",
-        404: "内容已失效或不可用",
-        410: "内容已失效或不可用",
-        429: "操作太频繁，请稍后重试",
-      }[response.status] ||
+      (path.startsWith("/session/email/") && data.error?.message) ||
+        {
+          401: "请先登录后继续",
+          403: "你没有权限执行此操作",
+          404: "内容已失效或不可用",
+          410: "内容已失效或不可用",
+          429: "操作太频繁，请稍后重试",
+        }[response.status] ||
         data.error?.message ||
         "暂时无法连接，请重试",
       data.error?.code,

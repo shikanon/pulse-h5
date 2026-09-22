@@ -1049,6 +1049,13 @@ select,
   line-height: 1.4;
   letter-spacing: -1px;
 }
+.login.has-email .login-mark {
+  margin: 16px 0 8px;
+}
+.login.has-email h2 {
+  font-size: 30px;
+  line-height: 1.2;
+}
 .login > .wide {
   margin-top: 12px;
 }

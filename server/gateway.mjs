@@ -1,4 +1,5 @@
 import { randomBytes } from "node:crypto";
+import { isIP } from "node:net";
 
 const loopback = (url) =>
   ["127.0.0.1", "localhost", "[::1]"].includes(url.hostname);
@@ -35,11 +36,24 @@ export function configuration(env = process.env) {
     );
   return {
     production,
+    trustProxy: env.PULSE_H5_TRUST_PROXY === "true",
     upstream,
     origin,
     localUser,
     appleClientId: env.PULSE_APPLE_WEB_CLIENT_ID || "",
   };
+}
+export function clientIP(req, config) {
+  const peer = req.socket.remoteAddress || "";
+  const forwarded = req.headers["x-real-ip"];
+  if (
+    config.trustProxy &&
+    ["127.0.0.1", "::1", "::ffff:127.0.0.1"].includes(peer) &&
+    typeof forwarded === "string" &&
+    isIP(forwarded)
+  )
+    return forwarded;
+  return peer;
 }
 export const isPublic = (method, path) =>
   (method === "GET" &&
@@ -248,11 +262,15 @@ export function createGateway(config) {
             session.user = user;
           }
         }
-        const authResponse = await fetch(new URL("/v1/auth-configuration", config.upstream), {redirect:"error",signal:AbortSignal.timeout(3000)}).catch(()=>null);
+        const authResponse = await fetch(
+          new URL("/v1/auth-configuration", config.upstream),
+          { redirect: "error", signal: AbortSignal.timeout(3000) },
+        ).catch(() => null);
         const authConfig = authResponse?.ok ? await authResponse.json() : {};
         json(res, 200, {
           user,
           localLogin: !!config.localUser,
+          emailEnabled: authConfig.emailEnabled === true,
           appleClientId: authConfig.appleEnabled
             ? authConfig.appleWebClientId || config.appleClientId
             : "",
@@ -312,6 +330,39 @@ export function createGateway(config) {
         const data = await r.json();
         if (!r.ok) return (json(res, r.status, data), true);
         save(res, { ...s, user: data.user }, id);
+        json(res, 200, { user: data.user });
+        return true;
+      }
+      if (
+        ["/session/email/register", "/session/email/login"].includes(path) &&
+        method === "POST"
+      ) {
+        const input = await readJSON(req);
+        if (
+          typeof input.email !== "string" ||
+          typeof input.password !== "string"
+        )
+          return (
+            json(res, 422, { error: { message: "请输入邮箱和密码" } }),
+            true
+          );
+        const action = path.endsWith("/register") ? "register" : "login";
+        const r = await upstream(
+          `/v1/auth/email/${action}`,
+          "POST",
+          {
+            email: input.email,
+            password: input.password,
+            termsVersion: input.termsVersion,
+          },
+          undefined,
+          { "X-Forwarded-For": clientIP(req, config) },
+        );
+        const data = await r.json();
+        if (r.headers.has("retry-after"))
+          res.setHeader("Retry-After", r.headers.get("retry-after"));
+        if (!r.ok) return (json(res, r.status, data), true);
+        save(res, { tokens: data.session, user: data.user }, id);
         json(res, 200, { user: data.user });
         return true;
       }

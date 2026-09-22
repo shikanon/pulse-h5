@@ -62,3 +62,9 @@ Node 托管 `dist` 并为深链返回 index.html。HTTPS 宿主、API 的 PUBLIC
 `PATCH works/:id/cover` 接受 `assetId`，空字符串移除。只允许作者选择已完成校验的图片或视频素材。`work.cover` 包含 `assetId/kind/url`；媒体通过 `GET works/:id/cover` 在作品可见性边界内读取，支持 Range 和 no-store，不暴露存储签名或其他私有素材。H5 为媒体 URL 附加 asset ID，确保更换同类型封面后重新加载。
 
 首页有封面时延迟挂载 Player；首次进入后保持同一 iframe，退出时隐藏并发送暂停信号。封面出错自动恢复实时预览。视频封面尊重减少动态效果偏好并在页面后台暂停。
+
+## 邮箱认证
+
+`/session/email/register` 与 `/session/email/login` 由同源网关转发到独立的消费者 API，令牌只留在服务端，浏览器接收 HttpOnly Cookie。读取 `/v1/auth-configuration` 的 `emailEnabled` 决定是否显示入口。失败登录不会触发全局会话过期跳转。密码不进入 localStorage、URL 或日志。
+
+API 使用随机盐和 PBKDF2-SHA256（600000 次）保存私有凭据，重启后仍可登录；注册、欢迎积分与邮箱唯一性在持久化事务内处理。公开注册只创建普通作者，不复用管理员或 Apple 身份。身份与 IP 限流、密码校验并发上限限制猜测与资源消耗。

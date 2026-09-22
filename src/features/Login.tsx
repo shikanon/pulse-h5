@@ -11,7 +11,11 @@ export default function Login() {
     nav = useNavigate(),
     [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
-    [accept, setAccept] = useState(false);
+    [accept, setAccept] = useState(false),
+    [email, setEmail] = useState(""),
+    [password, setPassword] = useState(""),
+    [confirmPassword, setConfirmPassword] = useState(""),
+    [emailMode, setEmailMode] = useState<"login" | "register">("login");
   const raw = location.state?.returnTo;
   const returnTo =
     typeof raw === "string" &&
@@ -24,21 +28,35 @@ export default function Login() {
     !!config.termsURL &&
     !!config.termsVersion &&
     session.user?.termsAcceptance?.version !== config.termsVersion;
-  async function login(local = false) {
+  async function login(local = false, useEmail = false) {
     setBusy(true);
     setError("");
     try {
       let user = session.user;
       if (!user) {
-        const credentials = local
-          ? undefined
-          : await appleSignIn(session.appleClientId, session.redirectURI);
+        if (
+          useEmail &&
+          emailMode === "register" &&
+          password !== confirmPassword
+        )
+          throw Error("两次输入的密码不一致");
+        const credentials = useEmail
+          ? { email, password, termsVersion: accept ? config.termsVersion : "" }
+          : local
+            ? undefined
+            : await appleSignIn(session.appleClientId, session.redirectURI);
         const r = await api<{ user: User }>(
-          local ? "/session/local" : "/session/apple",
+          useEmail
+            ? `/session/email/${emailMode}`
+            : local
+              ? "/session/local"
+              : "/session/apple",
           "POST",
           credentials,
         );
         user = r.user;
+        setPassword("");
+        setConfirmPassword("");
         const guestKey = `pulse.h5.draft.v1:guest:${returnTo}`;
         const draft = localStorage.getItem(guestKey);
         if (draft) {
@@ -74,7 +92,7 @@ export default function Login() {
     }
   }
   return (
-    <div className="page login">
+    <div className={`page login${session.emailEnabled ? " has-email" : ""}`}>
       <Header title="Pulse" back />
       <div className="login-mark">
         <Activity size={48} />
@@ -103,6 +121,103 @@ export default function Login() {
           </a>
         </label>
       ) : null}
+      {!session.user && session.emailEnabled && (
+        <form
+          className="form-stack email-auth"
+          onSubmit={(e) => {
+            e.preventDefault();
+            void login(false, true);
+          }}
+        >
+          <div className="segments" aria-label="邮箱认证方式">
+            <button
+              type="button"
+              aria-pressed={emailMode === "login"}
+              className={emailMode === "login" ? "selected" : ""}
+              disabled={busy}
+              onClick={() => {
+                setEmailMode("login");
+                setError("");
+              }}
+            >
+              邮箱登录
+            </button>
+            <button
+              type="button"
+              aria-pressed={emailMode === "register"}
+              className={emailMode === "register" ? "selected" : ""}
+              disabled={busy}
+              onClick={() => {
+                setEmailMode("register");
+                setError("");
+              }}
+            >
+              注册账号
+            </button>
+          </div>
+          <label>
+            邮箱
+            <input
+              type="email"
+              autoComplete="email"
+              autoCapitalize="none"
+              spellCheck={false}
+              maxLength={254}
+              required
+              disabled={busy}
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="name@example.com"
+            />
+          </label>
+          <label>
+            密码
+            <input
+              type="password"
+              autoComplete={
+                emailMode === "register" ? "new-password" : "current-password"
+              }
+              minLength={emailMode === "register" ? 12 : undefined}
+              maxLength={128}
+              required
+              disabled={busy}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder={
+                emailMode === "register" ? "至少 12 个字符" : "输入密码"
+              }
+            />
+          </label>
+          {emailMode === "register" && (
+            <>
+              <label>
+                确认密码
+                <input
+                  type="password"
+                  autoComplete="new-password"
+                  minLength={12}
+                  maxLength={128}
+                  required
+                  disabled={busy}
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                />
+              </label>
+              <p className="muted small-text">
+                注册即获 10000
+                积分。当前暂不发送验证邮件或提供邮箱找回密码，请妥善保存密码。
+              </p>
+            </>
+          )}
+          <Button
+            className="primary wide"
+            busy={busy}
+            disabled={termsRequired && !accept}
+          >
+            {emailMode === "register" ? "注册并登录" : "登录"}
+          </Button>
+        </form>
+      )}
       {session.user ? (
         <Button
           className="primary wide"
@@ -135,9 +250,9 @@ export default function Login() {
         >
           通过 Apple 登录
         </Button>
-      ) : (
+      ) : !session.emailEnabled ? (
         <Notice>此环境暂未开放 Web 登录。你仍然可以浏览和游玩公开作品。</Notice>
-      )}
+      ) : null}
       <Link className="button wide" to="/">
         先逛一逛
       </Link>
