@@ -1354,6 +1354,11 @@ main:has(.native-feed) {
   width: 44px;
   height: 24px;
 }
+@media (max-width: 759px) {
+  .native-pager {
+    display: none;
+  }
+}
 .feed-exit {
   height: 52px;
   flex-shrink: 0;
