@@ -16,6 +16,8 @@ scripts       隔离本地 API + H5 启动器
 
 浏览器通过同源 `/v1/*` 访问网关，业务逻辑仍在 `pulse-api`。H5 不运行自己的 Agent、不调用模型提供商。API Origin 仅从服务器环境读取，不允许分享 URL 覆盖。
 
+桌面创作台 `pulse-editor` 构建后由本服务挂载在 `/editor/`（默认静态目录 `dist/editor`，或 `PULSE_EDITOR_DIST`）。它使用本服务的 `/session`、`/api/v1` 与 `/play`，因此与 H5 共用消费者账号和私有候选 Artifact 的沙箱授权。模型调用与密钥仍仅在 `pulse-api`；部署必须将编辑器构建产物与 H5 配在同一站点，不通过另一个浏览器 Origin 共享会话。
+
 参照 API `35a0dbfb2749b0ff586add106f3cd3bc1b7cba9d` 与 iOS `8995d3900677ab21eebbce788754b3f2875e98f2`。
 
 ## 会话与授权

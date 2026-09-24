@@ -6,6 +6,7 @@ import { configuration, createGateway } from "./gateway.mjs";
 const config = configuration(),
   gateway = createGateway(config);
 const root = fileURLToPath(new URL("../", import.meta.url));
+const editorRoot = path.resolve(process.env.PULSE_EDITOR_DIST || path.join(root, "dist", "editor"));
 const vite = config.production
   ? null
   : await (
@@ -42,6 +43,26 @@ const server = http.createServer(async (req, res) => {
     return res.end(req.method === "HEAD" ? undefined : '{"status":"ok"}');
   }
   if (await gateway(req, res)) return;
+  if ((req.url === "/editor" || req.url?.startsWith("/editor/")) && (req.method === "GET" || req.method === "HEAD")) {
+    try {
+      const pathname = decodeURIComponent(new URL(req.url, config.origin).pathname);
+      const suffix = pathname === "/editor" ? "index.html" : pathname.slice(8) || "index.html";
+      const target = path.resolve(editorRoot, suffix);
+      if (target !== editorRoot && !target.startsWith(editorRoot + path.sep)) { res.writeHead(404); return res.end(); }
+      let bytes, ext = path.extname(target);
+      try { bytes = await readFile(target); }
+      catch {
+        if (ext) { res.writeHead(404); return res.end(); }
+        bytes = await readFile(path.join(editorRoot, "index.html")); ext = ".html";
+      }
+      res.setHeader("Content-Type", types[ext] || "application/octet-stream");
+      res.setHeader("Cache-Control", ext === ".html" ? "no-cache" : "public, max-age=31536000, immutable");
+      res.setHeader("X-Content-Type-Options", "nosniff");
+      res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+      res.setHeader("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data: https:; media-src 'self' blob: https:; connect-src 'self' https:; frame-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'");
+      return res.end(req.method === "HEAD" ? undefined : bytes);
+    } catch { res.writeHead(404); return res.end(); }
+  }
   if (vite) return vite.middlewares(req, res);
   if (req.method !== "GET" && req.method !== "HEAD") {
     res.writeHead(405);

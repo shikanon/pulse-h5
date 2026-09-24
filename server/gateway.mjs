@@ -173,7 +173,7 @@ export function createGateway(config) {
       },
       body: body ? JSON.stringify(body) : undefined,
       redirect: "error",
-      signal: AbortSignal.timeout(30000),
+      signal: AbortSignal.timeout(path === "/v1/editor/media-generations" ? 310000 : 30000),
     });
   }
   return async (req, res) => {
